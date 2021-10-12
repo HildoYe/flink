@@ -36,6 +36,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
@@ -71,8 +72,30 @@ public class CoBroadcastWithNonKeyedOperatorTest {
             expectedBr.add(new StreamRecord<>("9:5->value.5", 15L));
             expectedBr.add(new StreamRecord<>("9:6->value.6", 15L));
 
-            TestHarnessUtil.assertOutputEquals(
-                    "Wrong Side Output", expectedBr, testHarness.getOutput());
+            TestHarnessUtil.assertOutputEqualsSorted(
+                    "Wrong Side Output",
+                    expectedBr,
+                    testHarness.getOutput(),
+                    new StreamRecordComparator());
+        }
+    }
+
+    private class StreamRecordComparator implements Comparator<Object> {
+        @Override
+        public int compare(Object o1, Object o2) {
+            if (o1 instanceof Watermark || o2 instanceof Watermark) {
+                return 0;
+            } else {
+                StreamRecord<String> sr0 = (StreamRecord<String>) o1;
+                StreamRecord<String> sr1 = (StreamRecord<String>) o2;
+
+                if (sr0.getTimestamp() != sr1.getTimestamp()) {
+                    return (int) (sr0.getTimestamp() - sr1.getTimestamp());
+                }
+
+                int comparison = sr0.getValue().compareTo(sr1.getValue());
+                return comparison;
+            }
         }
     }
 
